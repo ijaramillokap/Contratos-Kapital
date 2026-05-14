@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Contractos — Gestión & KPIs</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --sidebar-w:230px;
+  --blue:#185FA5;--blue-lt:#EBF2FD;
+  --green:#3B6D11;--green-lt:#EAF3DE;
+  --amber:#BA7517;--amber-lt:#FAEEDA;
+  --red:#A32D2D;--red-lt:#FCEBEB;
+  --gray:#5F5E5A;--gray-lt:#F1EFE8;
+  --purple:#7C3AED;--purple-lt:#F3EFFE;
+  --bg:#f7f7f5;--surface:#fff;--border:#e5e5e1;
+  --text:#1a1a1a;--muted:#6b6b67;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{display:flex;min-height:100vh}
+
+/* ── Sidebar ── */
+.sidebar{width:var(--sidebar-w);background:var(--surface);border-right:1.5px solid var(--border);display:flex;flex-direction:column;padding:20px 12px;gap:2px;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.logo{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;padding:0 8px 18px;border-bottom:1.5px solid var(--border);margin-bottom:6px;letter-spacing:-.5px}
+.logo span{color:var(--blue)}
+.logo small{display:block;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:500;color:var(--muted);margin-top:2px}
+.nav-section{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:12px 12px 4px;margin-top:4px}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;font-size:13.5px;font-weight:500;color:var(--muted);border:none;background:none;width:100%;text-align:left;transition:all .15s}
+.nav-btn:hover{background:var(--bg);color:var(--text)}
+.nav-btn.active{background:var(--blue-lt);color:var(--blue);font-weight:600}
+.nav-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+
+/* ── Sync status bar ── */
+.sync-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;margin-top:auto;border-top:1.5px solid var(--border);font-size:12px;color:var(--muted)}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--gray);flex-shrink:0;transition:background .3s}
+.sync-dot.ok{background:var(--green)}
+.sync-dot.syncing{background:var(--amber);animation:pulse .8s infinite}
+.sync-dot.error{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Main ── */
+.main{flex:1;padding:32px;min-width:0;overflow-y:auto}
+.page{display:none}.page.active{display:block}
+.page-title{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:4px;letter-spacing:-.5px}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:24px}
+
+/* ── Loading screen ── */
+.loading-screen{position:fixed;inset:0;background:var(--surface);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:16px}
+.loading-screen .logo-big{font-family:'Syne',sans-serif;font-size:28px;font-weight:800}
+.loading-screen .logo-big span{color:var(--blue)}
+.loading-screen p{font-size:14px;color:var(--muted)}
+
+/* ── Cards ── */
+.card{background:var(--surface);border-radius:14px;border:1.5px solid var(--border);padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:14px}
+
+/* ── Metric cards ── */
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.metric-card{background:var(--surface);border-radius:14px;border:1.5px solid var(--border);padding:18px 20px;position:relative;overflow:hidden}
+.metric-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent,var(--blue))}
+.metric-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
+.metric-val{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--accent,var(--blue));line-height:1}
+.metric-sub{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* ── Grids ── */
+.charts-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.charts-3{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;margin-bottom:24px}
+.bottom-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* ── Funnel ── */
+.funnel-wrap{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:24px}
+.funnel-stage{background:var(--surface);border-radius:12px;border:1.5px solid var(--border);padding:14px 10px;text-align:center}
+.funnel-num{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;margin-bottom:4px}
+.funnel-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;line-height:1.3}
+.funnel-days{font-size:11px;margin-top:6px;padding:2px 8px;border-radius:20px;font-weight:600;display:inline-block}
+
+/* ── Team ── */
+.rank-table{width:100%;border-collapse:collapse;font-size:13px}
+.rank-table th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1.5px solid var(--border);background:var(--bg);white-space:nowrap}
+.rank-table td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+.rank-table tr:last-child td{border-bottom:none}
+.rank-table tr:hover td{background:var(--bg)}
+.bar-wrap{background:var(--bg);border-radius:20px;height:7px;overflow:hidden;min-width:70px}
+.bar-fill{height:100%;border-radius:20px;transition:width .4s}
+.avatar{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;margin-right:8px}
+
+/* ── Badges ── */
+.badge{display:inline-block;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.type-chip{border-radius:6px;padding:3px 8px;font-size:12px;font-weight:600;display:inline-block}
+.legend-row{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.activity-item,.upcoming-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child,.upcoming-item:last-child{border-bottom:none}
+.activity-name{font-size:13px;font-weight:600;margin-bottom:2px}
+.activity-sub{font-size:12px;color:var(--muted)}
+
+/* ── Stage pills ── */
+.stage-pipeline{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+.stage-pill{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid;white-space:nowrap}
+.stage-done{background:var(--green-lt);color:var(--green);border-color:var(--green)}
+.stage-active{background:var(--blue-lt);color:var(--blue);border-color:var(--blue)}
+.stage-pending{background:var(--bg);color:var(--muted);border-color:var(--border)}
+
+/* ── Toolbar ── */
+.toolbar{display:flex;gap:10px;margin-bottom:18px;align-items:center;flex-wrap:wrap}
+.search-inp{flex:1;min-width:160px;padding:9px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;outline:none;font-family:inherit}
+.sel{padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;outline:none;cursor:pointer;font-family:inherit}
+
+/* ── Table ── */
+.table-wrap{background:var(--surface);border-radius:14px;border:1.5px solid var(--border);overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{padding:12px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1.5px solid var(--border);white-space:nowrap;background:var(--bg)}
+td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--bg)}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--blue);color:#fff;padding:9px 20px}
+.btn-sm{padding:5px 11px;font-size:12px}
+.btn-edit{background:var(--blue-lt);color:var(--blue)}
+.btn-del{background:var(--red-lt);color:var(--red)}
+.btn-danger{background:var(--red);color:#fff}
+.btn-ghost{background:var(--bg);color:var(--muted)}
+.btn-success{background:var(--green-lt);color:var(--green)}
+
+/* ── Form ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-section{margin-bottom:22px}
+.form-section-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:12px;padding-bottom:8px;border-bottom:1.5px solid var(--border)}
+.field-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px;display:block}
+.req{color:#E24B4A}
+.field-input,.field-select,.field-textarea{width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:14px;outline:none;font-family:inherit}
+.field-textarea{resize:vertical}
+.field-input:focus,.field-select:focus,.field-textarea:focus{border-color:var(--blue)}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;z-index:200;padding:32px 20px;overflow-y:auto}
+.modal-box{background:var(--surface);border-radius:16px;padding:28px;width:100%;max-width:700px;border:1.5px solid var(--border);margin:auto}
+.modal-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-bottom:4px}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px}
+
+/* ── AI ── */
+.ai-result-card{background:var(--bg);border-radius:12px;padding:18px;border:1.5px solid var(--border)}
+.ai-field{margin-bottom:12px}
+.ai-field-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:3px}
+.ai-field-val{font-size:14px;font-weight:500}
+.clause-chip{display:inline-block;background:var(--blue-lt);color:var(--blue);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;margin:3px}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:28px;right:28px;background:#1a1a2e;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;z-index:9999;opacity:0;transform:translateY(12px);transition:all .25s;pointer-events:none;max-width:320px}
+.toast.show{opacity:1;transform:translateY(0)}
+
+/* ── Dots ── */
+.dots{display:inline-flex;gap:4px;align-items:center}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--blue);animation:blink 1.2s infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+.empty-state{text-align:center;padding:32px;color:var(--muted);font-size:13px}
+
+/* ── Responsive ── */
+@media(max-width:1100px){.metrics-grid{grid-template-columns:1fr 1fr}.funnel-wrap{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:800px){.charts-2,.charts-3,.bottom-2{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}}
+@media(max-width:640px){.sidebar{width:58px}.logo-text,.nav-label{display:none}.nav-btn{justify-content:center}.main{padding:20px 12px}}
+</style>
+</head>
+<body>
+
+<!-- Loading screen -->
+<div class="loading-screen" id="loading-screen">
+  <div class="logo-big">Contra<span>ctos</span></div>
+  <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+  <p id="loading-msg">Conectando con Google Sheets…</p>
+</div>
+
+<div class="app" id="app-shell" style="display:none">
+
+<!-- ════ SIDEBAR ════ -->
+<nav class="sidebar">
+  <div class="logo">
+    <span class="logo-text">Contra<span>ctos</span></span>
+    <small class="logo-text">Gestión & KPIs</small>
+  </div>
+
+  <div class="nav-section logo-text">Gestión</div>
+  <button class="nav-btn active" id="nav-dashboard" onclick="navigate('dashboard')"><span class="nav-icon">◈</span><span class="nav-label">Panel general</span></button>
+  <button class="nav-btn" id="nav-contracts" onclick="navigate('contracts')"><span class="nav-icon">☰</span><span class="nav-label">Contratos</span></button>
+  <button class="nav-btn" id="nav-new" onclick="navigate('new')"><span class="nav-icon">＋</span><span class="nav-label">Nuevo contrato</span></button>
+  <button class="nav-btn" id="nav-ai" onclick="navigate('ai')"><span class="nav-icon">◎</span><span class="nav-label">Análisis IA</span></button>
+
+  <div class="nav-section logo-text">KPIs</div>
+  <button class="nav-btn" id="nav-kpis" onclick="navigate('kpis')"><span class="nav-icon">◈</span><span class="nav-label">Resumen ejecutivo</span></button>
+  <button class="nav-btn" id="nav-funnel" onclick="navigate('funnel')"><span class="nav-icon">⇉</span><span class="nav-label">Embudo de etapas</span></button>
+  <button class="nav-btn" id="nav-team" onclick="navigate('team')"><span class="nav-icon">◉</span><span class="nav-label">Equipo</span></button>
+
+  <div class="sync-bar">
+    <span class="sync-dot" id="sync-dot"></span>
+    <span id="sync-label">Cargando…</span>
+  </div>
+</nav>
+
+<!-- ════ MAIN ════ -->
+<main class="main">
+
+<!-- Panel general -->
+<div class="page active" id="page-dashboard">
+  <h1 class="page-title">Panel General</h1>
+  <p class="page-sub">Vista rápida de todos los contratos — sincronizado en tiempo real</p>
+  <div class="metrics-grid" id="dash-metrics"></div>
+  <div class="charts-3">
+    <div class="card"><div class="section-title">Valor por tipo de contrato</div><div style="height:200px"><canvas id="chart-bar"></canvas></div></div>
+    <div class="card"><div class="section-title">Distribución por estado</div><div style="height:130px"><canvas id="chart-dough"></canvas></div><div id="dough-legend" style="margin-top:12px"></div></div>
+  </div>
+  <div class="bottom-2">
+    <div class="card"><div class="section-title">Actividad reciente</div><div id="recent-list"></div></div>
+    <div class="card"><div class="section-title">Próximos vencimientos</div><div id="upcoming-list"></div></div>
+  </div>
+</div>
+
+<!-- Contratos -->
+<div class="page" id="page-contracts">
+  <h1 class="page-title">Contratos</h1>
+  <p class="page-sub">Todos los contratos con búsqueda, filtros y seguimiento de etapas</p>
+  <div class="toolbar">
+    <input class="search-inp" id="c-search" placeholder="🔍 Buscar contrato o proveedor…" oninput="renderContracts()"/>
+    <select class="sel" id="c-fstatus" onchange="renderContracts()">
+      <option value="">Todos los estados</option>
+      <option>Activo</option><option>Por vencer</option><option>Vencido</option><option>Borrador</option><option>En proceso</option><option>Completado</option><option>Cancelado</option>
+    </select>
+    <select class="sel" id="c-ftype" onchange="renderContracts()">
+      <option value="">Todos los tipos</option>
+      <option>Servicios</option><option>Suministros</option><option>Tecnología</option><option>Consultoría</option><option>Otro</option>
+    </select>
+    <button class="btn btn-primary" onclick="navigate('new')">＋ Nuevo</button>
+    <button class="btn btn-ghost btn-sm" onclick="loadFromSheets(true)" title="Sincronizar">↻ Sincronizar</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Nombre</th><th>Tipo</th><th>Estado</th><th>Etapa proceso</th><th>Vencimiento</th><th>Valor</th><th>Responsable</th><th>Acciones</th></tr></thead>
+      <tbody id="contracts-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Nuevo contrato -->
+<div class="page" id="page-new">
+  <h1 class="page-title" id="form-page-title">Nuevo Contrato</h1>
+  <p class="page-sub">Los datos se guardarán directamente en Google Sheets</p>
+  <div class="card" style="max-width:820px">
+    <div class="form-section">
+      <div class="form-section-title">Información principal</div>
+      <div class="form-grid">
+        <div><label class="field-label">Nombre del contrato <span class="req">*</span></label><input class="field-input" id="f-name"/></div>
+        <div><label class="field-label">Proveedor <span class="req">*</span></label><input class="field-input" id="f-vendor"/></div>
+        <div><label class="field-label">Responsable <span class="req">*</span></label><input class="field-input" id="f-responsible" placeholder="Ej. Lic. Ana Torres"/></div>
+        <div><label class="field-label">Tipo</label>
+          <select class="field-select" id="f-type"><option value="">Seleccionar…</option><option>Servicios</option><option>Suministros</option><option>Tecnología</option><option>Consultoría</option><option>Otro</option></select></div>
+        <div><label class="field-label">Fecha inicio</label><input class="field-input" type="date" id="f-start"/></div>
+        <div><label class="field-label">Fecha vencimiento</label><input class="field-input" type="date" id="f-end"/></div>
+        <div><label class="field-label">Valor (MXN)</label><input class="field-input" type="number" id="f-value"/></div>
+        <div><label class="field-label">Estado del contrato</label>
+          <select class="field-select" id="f-status"><option>Borrador</option><option>Activo</option><option>Por vencer</option><option>Vencido</option></select></div>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title">Proceso interno</div>
+      <div class="form-grid">
+        <div><label class="field-label">Fecha de solicitud <span class="req">*</span></label><input class="field-input" type="date" id="f-reqdate"/></div>
+        <div><label class="field-label">Etapa actual</label>
+          <select class="field-select" id="f-stage">
+            <option value="0">1. Solicitud recibida</option><option value="1">2. Revisión legal</option>
+            <option value="2">3. VoBo de área</option><option value="3">4. Firma proveedor</option>
+            <option value="4">5. Firma interna</option><option value="5">6. Registro y archivo</option>
+            <option value="6">✓ Completado</option>
+          </select></div>
+        <div><label class="field-label">Estado del proceso</label>
+          <select class="field-select" id="f-pstatus"><option>En proceso</option><option>Completado</option><option>Cancelado</option></select></div>
+      </div>
+      <div style="margin-top:14px">
+        <label class="field-label" style="margin-bottom:10px">Fechas por etapa (para calcular tiempos KPI)</label>
+        <div class="form-grid" id="f-stage-dates"></div>
+      </div>
+    </div>
+    <div class="form-section">
+      <div class="form-section-title">Detalles</div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div><label class="field-label">Descripción / Objeto</label><textarea class="field-textarea" id="f-desc" rows="3"></textarea></div>
+        <div><label class="field-label">Cláusulas relevantes</label><textarea class="field-textarea" id="f-clauses" rows="3"></textarea></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <button class="btn btn-primary" id="btn-save" onclick="saveContract()">Guardar en Google Sheets</button>
+      <button class="btn btn-ghost" onclick="navigate('contracts')">Cancelar</button>
+      <span id="save-status" style="font-size:13px;color:var(--muted)"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Análisis IA -->
+<div class="page" id="page-ai">
+  <h1 class="page-title">Análisis con IA</h1>
+  <p class="page-sub">Extrae automáticamente los datos de cualquier texto de contrato</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div class="card">
+      <div class="form-section-title" style="margin-bottom:14px">Texto del contrato</div>
+      <textarea class="field-textarea" id="ai-text" rows="13" placeholder="Pega aquí el texto completo o fragmento del contrato…"></textarea>
+      <div style="margin-top:14px;display:flex;gap:10px;align-items:center">
+        <button class="btn btn-primary" id="btn-analyze" onclick="analyzeAI()">◎ Analizar contrato</button>
+        <button class="btn btn-ghost btn-sm" id="btn-clear-ai" style="display:none" onclick="clearAI()">Limpiar</button>
+      </div>
+      <div id="ai-error" style="display:none;margin-top:12px;color:var(--red);font-size:13px;background:var(--red-lt);padding:10px 14px;border-radius:8px"></div>
+    </div>
+    <div class="card">
+      <div class="form-section-title" style="margin-bottom:14px">Resultados extraídos</div>
+      <div id="ai-placeholder" style="color:var(--muted);font-size:14px;text-align:center;padding-top:60px"><div style="font-size:32px;margin-bottom:10px">◎</div>Pega el texto y presiona "Analizar".</div>
+      <div id="ai-loading" style="display:none;text-align:center;padding-top:60px;color:var(--muted)"><div class="dots" style="justify-content:center;margin-bottom:12px"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>Analizando con IA…</div>
+      <div id="ai-results" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- KPI Resumen -->
+<div class="page" id="page-kpis">
+  <h1 class="page-title">Resumen Ejecutivo</h1>
+  <p class="page-sub">Indicadores clave del proceso contractual — datos en tiempo real</p>
+  <div class="metrics-grid" id="kpi-cards"></div>
+  <div class="charts-3">
+    <div class="card"><div class="section-title">Contratos completados por mes</div><div style="height:210px"><canvas id="kpi-monthly"></canvas></div></div>
+    <div class="card"><div class="section-title">Por estado de proceso</div><div style="height:130px"><canvas id="kpi-status"></canvas></div><div id="kpi-status-legend" style="margin-top:12px"></div></div>
+  </div>
+  <div class="charts-2">
+    <div class="card"><div class="section-title">Tiempo promedio por etapa (días)</div><div style="height:210px"><canvas id="kpi-stages"></canvas></div></div>
+    <div class="card"><div class="section-title">Valor total contratado por mes (MXN)</div><div style="height:210px"><canvas id="kpi-value"></canvas></div></div>
+  </div>
+</div>
+
+<!-- KPI Embudo -->
+<div class="page" id="page-funnel">
+  <h1 class="page-title">Embudo de Etapas</h1>
+  <p class="page-sub">Contratos activos en cada fase y tiempo promedio de permanencia</p>
+  <div class="funnel-wrap" id="funnel-cards"></div>
+  <div class="charts-2">
+    <div class="card"><div class="section-title">Contratos en proceso — detalle</div><div id="funnel-list"></div></div>
+    <div class="card"><div class="section-title">Distribución por etapa</div><div style="height:250px"><canvas id="funnel-bar"></canvas></div></div>
+  </div>
+</div>
+
+<!-- KPI Equipo -->
+<div class="page" id="page-team">
+  <h1 class="page-title">Desempeño del Equipo</h1>
+  <p class="page-sub">Productividad individual y tiempos de gestión por responsable</p>
+  <div class="toolbar">
+    <select class="sel" id="team-period" onchange="renderTeam()">
+      <option value="0">Todo el período</option><option value="30">Últimos 30 días</option>
+      <option value="90">Últimos 90 días</option><option value="180">Últimos 6 meses</option>
+    </select>
+  </div>
+  <div class="charts-2" style="margin-bottom:20px">
+    <div class="card"><div class="section-title">Contratos por responsable</div><div style="height:230px"><canvas id="team-bar"></canvas></div></div>
+    <div class="card"><div class="section-title">Tiempo promedio de cierre (días)</div><div style="height:230px"><canvas id="team-time"></canvas></div></div>
+  </div>
+  <div class="card"><div class="section-title">Ranking del equipo</div><div style="overflow:auto"><table class="rank-table" id="team-ranking"></table></div></div>
+</div>
+
+</main>
+</div>
+
+<!-- Modal: Editar -->
+<div class="modal-overlay" id="modal-edit" style="display:none" onclick="if(event.target===this)closeEdit()">
+<div class="modal-box">
+  <div class="modal-title">Editar contrato</div>
+  <div class="modal-sub" id="edit-contract-name"></div>
+  <div class="form-grid" style="margin-bottom:14px">
+    <div><label class="field-label">Nombre <span class="req">*</span></label><input class="field-input" id="e-name"/></div>
+    <div><label class="field-label">Proveedor <span class="req">*</span></label><input class="field-input" id="e-vendor"/></div>
+    <div><label class="field-label">Responsable</label><input class="field-input" id="e-responsible"/></div>
+    <div><label class="field-label">Tipo</label><select class="field-select" id="e-type"><option value="">Seleccionar…</option><option>Servicios</option><option>Suministros</option><option>Tecnología</option><option>Consultoría</option><option>Otro</option></select></div>
+    <div><label class="field-label">Estado contrato</label><select class="field-select" id="e-status"><option>Borrador</option><option>Activo</option><option>Por vencer</option><option>Vencido</option></select></div>
+    <div><label class="field-label">Estado proceso</label><select class="field-select" id="e-pstatus"><option>En proceso</option><option>Completado</option><option>Cancelado</option></select></div>
+    <div><label class="field-label">Fecha inicio</label><input class="field-input" type="date" id="e-start"/></div>
+    <div><label class="field-label">Fecha vencimiento</label><input class="field-input" type="date" id="e-end"/></div>
+    <div><label class="field-label">Valor (MXN)</label><input class="field-input" type="number" id="e-value"/></div>
+    <div><label class="field-label">Etapa actual</label>
+      <select class="field-select" id="e-stage"><option value="0">1. Solicitud recibida</option><option value="1">2. Revisión legal</option><option value="2">3. VoBo de área</option><option value="3">4. Firma proveedor</option><option value="4">5. Firma interna</option><option value="5">6. Registro y archivo</option><option value="6">✓ Completado</option></select></div>
+  </div>
+  <div style="margin-bottom:12px"><label class="field-label">Descripción</label><textarea class="field-textarea" id="e-desc" rows="2"></textarea></div>
+  <div style="margin-bottom:20px"><label class="field-label">Cláusulas</label><textarea class="field-textarea" id="e-clauses" rows="2"></textarea></div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <button class="btn btn-primary" id="btn-save-edit" onclick="saveEdit()">Guardar cambios</button>
+    <button class="btn btn-ghost" onclick="closeEdit()">Cancelar</button>
+    <span id="edit-status" style="font-size:13px;color:var(--muted)"></span>
+  </div>
+</div>
+</div>
+
+<!-- Modal: Eliminar -->
+<div class="modal-overlay" id="modal-delete" style="display:none" onclick="if(event.target===this)closeDelete()">
+<div class="modal-box" style="max-width:420px">
+  <div class="modal-title">Eliminar contrato</div>
+  <p style="font-size:14px;color:var(--muted);margin-bottom:20px">¿Seguro que deseas eliminar <strong id="del-name" style="color:var(--text)"></strong>? Esta acción eliminará el registro de Google Sheets y no se puede deshacer.</p>
+  <div style="display:flex;gap:10px;align-items:center">
+    <button class="btn btn-danger" id="btn-confirm-del" onclick="confirmDelete()">Eliminar</button>
+    <button class="btn btn-ghost" onclick="closeDelete()">Cancelar</button>
+    <span id="del-status" style="font-size:13px;color:var(--muted)"></span>
+  </div>
+</div>
+</div>
+
+<!-- Modal: Avanzar etapa -->
+<div class="modal-overlay" id="modal-stage" style="display:none" onclick="if(event.target===this)closeStageModal()">
+<div class="modal-box" style="max-width:480px">
+  <div class="modal-title" id="stage-modal-title">Avanzar etapa</div>
+  <div class="modal-sub" id="stage-modal-sub"></div>
+  <div class="stage-pipeline" id="stage-pipeline-display"></div>
+  <div style="margin-top:16px">
+    <label class="field-label">Fecha en que ocurrió</label>
+    <input class="field-input" type="date" id="stage-date" style="margin-bottom:12px"/>
+    <label class="field-label">Notas (opcional)</label>
+    <textarea class="field-textarea" id="stage-notes" rows="2"></textarea>
+  </div>
+  <div style="display:flex;gap:10px;margin-top:16px;align-items:center">
+    <button class="btn btn-primary" id="btn-advance" onclick="confirmAdvance()">Registrar avance</button>
+    <button class="btn btn-ghost" onclick="closeStageModal()">Cancelar</button>
+    <span id="advance-status" style="font-size:13px;color:var(--muted)"></span>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// CONFIG — Google Apps Script
+// ════════════════════════════════════════════════════════════
+const SCRIPT_URL = 'https://script.google.com/a/macros/kapital.com/s/AKfycbzGTv7zXVRytq_Zc9o7H1GPIy7oVMW7SHiOYLXc-jS4AHIll73CZnfPW_OqpIF0VVGXVQ/exec';
+const COLS = ['id','name','vendor','responsible','type','status','processStatus','start','end','value','requestDate','currentStage','stageDates','desc','clauses','notes','created'];
+
+// ════════════════════════════════════════════════════════════
+// CONSTANTS
+// ════════════════════════════════════════════════════════════
+const STAGES = ['Solicitud recibida','Revisión legal','VoBo de área','Firma proveedor','Firma interna','Registro y archivo'];
+const STAGE_COLORS = ['#185FA5','#7C3AED','#EF9F27','#1D9E75','#3B6D11','#888780'];
+const TYPE_COLOR = {Tecnología:'#378ADD',Consultoría:'#1D9E75',Servicios:'#EF9F27',Suministros:'#888780',Otro:'#A855F7'};
+const CONTRACT_STATUS_COLOR = {'Activo':{bg:'#EAF3DE',color:'#3B6D11'},'Por vencer':{bg:'#FAEEDA',color:'#854F0B'},'Vencido':{bg:'#FCEBEB',color:'#A32D2D'},'Borrador':{bg:'#F1EFE8',color:'#5F5E5A'}};
+const PROCESS_STATUS_COLOR  = {'En proceso':{bg:'#EBF2FD',color:'#185FA5'},'Completado':{bg:'#EAF3DE',color:'#3B6D11'},'Cancelado':{bg:'#FCEBEB',color:'#A32D2D'}};
+const AVATAR_COLORS = ['#185FA5','#7C3AED','#1D9E75','#EF9F27','#A32D2D','#888780','#0891B2','#BE185D','#D97706','#059669'];
+
+// ════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════
+let contracts = [];
+let editingId=null, deleteTargetId=null, stageTargetId=null, aiExtracted=null;
+let charts={}, toastTimer, syncInterval;
+
+// ════════════════════════════════════════════════════════════
+// APPS SCRIPT API
+// ════════════════════════════════════════════════════════════
+function setSyncStatus(state, label){
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  dot.className = 'sync-dot ' + state;
+  lbl.textContent = label;
+}
+
+function normalizeContract(obj){
+  obj.id = Number(obj.id)||0;
+  obj.value = Number(obj.value)||0;
+  obj.currentStage = Number(obj.currentStage)||0;
+  obj.created = Number(obj.created)||0;
+  try{ obj.stageDates = typeof obj.stageDates==='string' ? JSON.parse(obj.stageDates||'[]') : (obj.stageDates||[]); } catch(e){ obj.stageDates = []; }
+  if(!Array.isArray(obj.stageDates)||obj.stageDates.length<7) obj.stageDates = Array(7).fill('').map((_,i)=>obj.stageDates[i]||'');
+  return obj;
+}
+
+function contractToPayload(c){
+  const out = {...c};
+  out.stageDates = JSON.stringify(c.stageDates||Array(7).fill(''));
+  return out;
+}
+
+// Load all contracts from Apps Script
+async function loadFromSheets(silent=false){
+  if(!silent) setSyncStatus('syncing','Sincronizando…');
+  try{
+    const res = await fetch(SCRIPT_URL + '?action=getAll');
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    contracts = data.map(normalizeContract).filter(c=>c.id);
+    setSyncStatus('ok', `Sync ${new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}`);
+    refreshCurrentPage();
+  } catch(e){
+    setSyncStatus('error','Error de conexión');
+    if(!silent) showToast('⚠️ Error al conectar. Verifica tu conexión e intenta de nuevo.');
+    console.error(e);
+  }
+}
+
+// Save (insert or update) a contract
+async function appendRow(c){
+  const res = await fetch(SCRIPT_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'save', contract:contractToPayload(c)})});
+  if(!res.ok) throw new Error(`Save failed: ${res.status}`);
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+  await loadFromSheets(true);
+}
+
+async function updateRow(c){
+  await appendRow(c); // Apps Script handles insert-or-update in one call
+}
+
+// Delete a contract by id
+async function deleteRow(id){
+  const res = await fetch(SCRIPT_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'delete', id:String(id)})});
+  if(!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  const data = await res.json();
+  if(data.error) throw new Error(data.error);
+}
+
+// ════════════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════════════
+function fmt(n){ return Number(n||0).toLocaleString('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0}); }
+function fmtDate(d){ if(!d) return '—'; return new Date(d+'T12:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'}); }
+function timeAgo(ts){ const d=Math.floor((Date.now()-Number(ts))/86400000); if(d===0) return 'hoy'; if(d===1) return 'ayer'; if(d<30) return `hace ${d} días`; const m=Math.floor(d/30); return m<12?`hace ${m} mes${m>1?'es':''}`:`hace ${Math.floor(m/12)} año${Math.floor(m/12)>1?'s':''}`; }
+function daysBetween(a,b){ if(!a||!b) return null; return Math.round((new Date(b)-new Date(a))/86400000); }
+function daysFromToday(d){ if(!d) return null; return Math.round((Date.now()-new Date(d+'T12:00:00'))/86400000); }
+function contractDays(c){ if(!c.requestDate) return null; if(c.processStatus==='Completado'&&c.stageDates?.[6]) return daysBetween(c.requestDate,c.stageDates[6])||daysBetween(c.requestDate,c.stageDates[5]); return daysFromToday(c.requestDate); }
+function stageDuration(c,i){ if(!c.stageDates) return null; const from=c.stageDates[i],to=c.stageDates[i+1]; if(!from) return null; return to?daysBetween(from,to):daysFromToday(from); }
+function initials(n){ return (n||'?').split(' ').filter(w=>w.length>2).map(w=>w[0]).join('').substring(0,2).toUpperCase(); }
+function avatarColor(n){ let h=0; for(let c of (n||'')) h=(h*31+c.charCodeAt(0))%AVATAR_COLORS.length; return AVATAR_COLORS[h]; }
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),3200); }
+function gv(id){ return document.getElementById(id)?.value||''; }
+function sv(id,val){ const el=document.getElementById(id); if(el) el.value=(val??''); }
+function dc(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
+function badge(status,map){ const s=(map||CONTRACT_STATUS_COLOR)[status]||{bg:'#F1EFE8',color:'#5F5E5A'}; return `<span class="badge" style="background:${s.bg};color:${s.color}">${status||'—'}</span>`; }
+function typeChip(type){ const c=TYPE_COLOR[type]||'#888780'; return `<span class="type-chip" style="background:${c}22;color:${c}">${type||'—'}</span>`; }
+function setLoading(btnId, loading, label){ const b=document.getElementById(btnId); if(b){b.disabled=loading; b.textContent=loading?'Guardando…':(label||b.textContent);} }
+
+// ════════════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════════════
+let currentPage = 'dashboard';
+function navigate(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  const nb=document.getElementById('nav-'+page); if(nb) nb.classList.add('active');
+  currentPage=page;
+  if(page==='dashboard') renderDashboard();
+  if(page==='contracts') renderContracts();
+  if(page==='new'&&!editingId) clearForm();
+  if(page==='kpis') renderKPIs();
+  if(page==='funnel') renderFunnel();
+  if(page==='team') renderTeam();
+}
+function refreshCurrentPage(){ navigate(currentPage); }
+
+// ════════════════════════════════════════════════════════════
+// FORM
+// ════════════════════════════════════════════════════════════
+function buildStageDatesGrid(){
+  document.getElementById('f-stage-dates').innerHTML =
+    STAGES.map((s,i)=>`<div><label class="field-label" style="font-size:10px">${i+1}. ${s}</label><input class="field-input" type="date" id="f-sd-${i}" style="font-size:13px"/></div>`).join('')+
+    `<div><label class="field-label" style="font-size:10px">✓ Completado</label><input class="field-input" type="date" id="f-sd-6" style="font-size:13px"/></div>`;
+}
+function clearForm(){
+  editingId=null;
+  document.getElementById('form-page-title').textContent='Nuevo Contrato';
+  ['name','vendor','responsible','type','value','desc','clauses'].forEach(k=>sv('f-'+k,''));
+  sv('f-status','Borrador'); sv('f-stage','0'); sv('f-pstatus','En proceso');
+  sv('f-reqdate',new Date().toISOString().split('T')[0]);
+  buildStageDatesGrid();
+  document.getElementById('save-status').textContent='';
+}
+
+async function saveContract(){
+  const name=gv('f-name').trim(), vendor=gv('f-vendor').trim(), responsible=gv('f-responsible').trim(), requestDate=gv('f-reqdate');
+  if(!name||!vendor||!responsible||!requestDate){ showToast('⚠️ Completa nombre, proveedor, responsable y fecha.'); return; }
+  const stageDates=Array.from({length:7},(_,i)=>gv('f-sd-'+i));
+  if(!stageDates[0]) stageDates[0]=requestDate;
+  const obj={
+    id: editingId||Date.now(), name, vendor, responsible, type:gv('f-type'),
+    status:gv('f-status'), processStatus:gv('f-pstatus'),
+    start:gv('f-start'), end:gv('f-end'), value:Number(gv('f-value'))||0,
+    requestDate, currentStage:Number(gv('f-stage')), stageDates,
+    desc:gv('f-desc'), clauses:gv('f-clauses'), notes:'',
+    created: editingId ? (contracts.find(c=>c.id===editingId)?.created||Date.now()) : Date.now()
+  };
+  setLoading('btn-save',true);
+  document.getElementById('save-status').textContent='Guardando en Sheets…';
+  try{
+    if(editingId){ await updateRow(obj); showToast('✅ Contrato actualizado en Google Sheets.'); }
+    else{ await appendRow(obj); showToast('✅ Contrato guardado en Google Sheets.'); }
+    editingId=null; navigate('contracts');
+  }catch(e){ showToast('⚠️ Error al guardar. Intenta de nuevo.'); document.getElementById('save-status').textContent='Error al guardar.'; console.error(e); }
+  setLoading('btn-save',false,'Guardar en Google Sheets');
+  document.getElementById('save-status').textContent='';
+}
+
+// ════════════════════════════════════════════════════════════
+// MODAL: EDIT
+// ════════════════════════════════════════════════════════════
+function openEdit(id){
+  const c=contracts.find(x=>x.id===id); if(!c) return;
+  editingId=id;
+  document.getElementById('edit-contract-name').textContent=c.name;
+  sv('e-name',c.name); sv('e-vendor',c.vendor); sv('e-responsible',c.responsible);
+  sv('e-type',c.type); sv('e-status',c.status); sv('e-pstatus',c.processStatus);
+  sv('e-start',c.start); sv('e-end',c.end); sv('e-value',c.value);
+  sv('e-stage',c.currentStage); sv('e-desc',c.desc); sv('e-clauses',c.clauses);
+  document.getElementById('edit-status').textContent='';
+  document.getElementById('modal-edit').style.display='flex';
+}
+function closeEdit(){ document.getElementById('modal-edit').style.display='none'; editingId=null; }
+async function saveEdit(){
+  const name=gv('e-name').trim(), vendor=gv('e-vendor').trim();
+  if(!name||!vendor){ showToast('⚠️ Nombre y proveedor son requeridos.'); return; }
+  const c=contracts.find(x=>x.id===editingId);
+  const obj={...c, name, vendor, responsible:gv('e-responsible'), type:gv('e-type'),
+    status:gv('e-status'), processStatus:gv('e-pstatus'), start:gv('e-start'), end:gv('e-end'),
+    value:Number(gv('e-value'))||0, currentStage:Number(gv('e-stage')), desc:gv('e-desc'), clauses:gv('e-clauses')};
+  setLoading('btn-save-edit',true);
+  document.getElementById('edit-status').textContent='Guardando…';
+  try{
+    await updateRow(obj);
+    closeEdit(); showToast('✅ Contrato actualizado en Google Sheets.');
+    await loadFromSheets(true); renderContracts();
+  }catch(e){ showToast('⚠️ Error al actualizar.'); document.getElementById('edit-status').textContent='Error.'; console.error(e); }
+  setLoading('btn-save-edit',false,'Guardar cambios');
+}
+
+// ════════════════════════════════════════════════════════════
+// MODAL: DELETE
+// ════════════════════════════════════════════════════════════
+function openDelete(id){ const c=contracts.find(x=>x.id===id); if(!c) return; deleteTargetId=id; document.getElementById('del-name').textContent=c.name; document.getElementById('del-status').textContent=''; document.getElementById('modal-delete').style.display='flex'; }
+function closeDelete(){ document.getElementById('modal-delete').style.display='none'; deleteTargetId=null; }
+async function confirmDelete(){
+  setLoading('btn-confirm-del',true);
+  document.getElementById('del-status').textContent='Eliminando…';
+  try{
+    await deleteRow(deleteTargetId);
+    closeDelete(); showToast('🗑️ Contrato eliminado de Google Sheets.');
+    await loadFromSheets(true); renderContracts();
+  }catch(e){ showToast('⚠️ Error al eliminar.'); document.getElementById('del-status').textContent='Error.'; console.error(e); }
+  setLoading('btn-confirm-del',false,'Eliminar');
+}
+
+// ════════════════════════════════════════════════════════════
+// MODAL: ADVANCE STAGE
+// ════════════════════════════════════════════════════════════
+function openStageModal(id){
+  const c=contracts.find(x=>x.id===id); if(!c) return;
+  stageTargetId=id;
+  const next=Math.min(c.currentStage+1,6);
+  document.getElementById('stage-modal-title').textContent=c.name.substring(0,45);
+  document.getElementById('stage-modal-sub').textContent=`Siguiente: ${next<=5?STAGES[next]:'Completado'}`;
+  document.getElementById('stage-pipeline-display').innerHTML=STAGES.map((s,i)=>{
+    const cls=i<c.currentStage?'stage-done':i===c.currentStage?'stage-active':'stage-pending';
+    return `<span class="stage-pill ${cls}">${i+1}. ${s}</span>`;
+  }).join('');
+  sv('stage-date',new Date().toISOString().split('T')[0]); sv('stage-notes','');
+  document.getElementById('advance-status').textContent='';
+  document.getElementById('modal-stage').style.display='flex';
+}
+function closeStageModal(){ document.getElementById('modal-stage').style.display='none'; stageTargetId=null; }
+async function confirmAdvance(){
+  const c=contracts.find(x=>x.id===stageTargetId); if(!c) return;
+  const next=Math.min(c.currentStage+1,6);
+  const stageDates=[...(c.stageDates||Array(7).fill(''))];
+  stageDates[next]=gv('stage-date')||new Date().toISOString().split('T')[0];
+  const done=next>=6;
+  const updated={...c, currentStage:next, stageDates, processStatus:done?'Completado':'En proceso'};
+  setLoading('btn-advance',true);
+  document.getElementById('advance-status').textContent='Guardando…';
+  try{
+    await updateRow(updated);
+    closeStageModal(); showToast(done?'🎉 Contrato completado y archivado.':'✅ Etapa registrada en Google Sheets.');
+    await loadFromSheets(true); renderContracts();
+  }catch(e){ showToast('⚠️ Error al guardar etapa.'); document.getElementById('advance-status').textContent='Error.'; console.error(e); }
+  setLoading('btn-advance',false,'Registrar avance');
+}
+
+// ════════════════════════════════════════════════════════════
+// AI ANALYSIS
+// ════════════════════════════════════════════════════════════
+async function analyzeAI(){
+  const text=gv('ai-text').trim(); if(!text) return;
+  document.getElementById('ai-placeholder').style.display='none';
+  document.getElementById('ai-loading').style.display='block';
+  document.getElementById('ai-results').style.display='none';
+  document.getElementById('ai-error').style.display='none';
+  document.getElementById('btn-analyze').disabled=true;
+  try{
+    const prompt=`Analiza el siguiente texto de contrato y extrae en JSON estricto (sin markdown, sin backticks, sin comentarios):
+{"name":"nombre del contrato","vendor":"nombre del proveedor","client":"nombre del cliente","type":"Servicios | Suministros | Tecnología | Consultoría | Otro","start":"YYYY-MM-DD o vacío","end":"YYYY-MM-DD o vacío","value":número o 0,"contact":"responsable principal","desc":"resumen del objeto (máx 200 chars)","clauses":[{"type":"tipo de cláusula","text":"texto resumido"}]}
+
+TEXTO DEL CONTRATO:
+${text.substring(0,3000)}`;
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const data=await res.json();
+    const raw=data.content?.find(b=>b.type==='text')?.text||'{}';
+    aiExtracted=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    const fields=[['Nombre',aiExtracted.name],['Proveedor',aiExtracted.vendor],['Cliente',aiExtracted.client],['Tipo',aiExtracted.type],['Inicio',fmtDate(aiExtracted.start)],['Vencimiento',fmtDate(aiExtracted.end)],['Valor',fmt(aiExtracted.value)],['Responsable',aiExtracted.contact],['Descripción',aiExtracted.desc]].filter(([,v])=>v&&v!=='—'&&v!=='$0');
+    const clauses=Array.isArray(aiExtracted.clauses)&&aiExtracted.clauses.length>0?`<div class="ai-field"><div class="ai-field-label">Cláusulas</div><div>${aiExtracted.clauses.map(c=>`<span class="clause-chip">${c.type}</span>`).join('')}</div></div>`:'';
+    document.getElementById('ai-results').innerHTML=`<div class="ai-result-card">${fields.map(([l,v])=>`<div class="ai-field"><div class="ai-field-label">${l}</div><div class="ai-field-val">${v}</div></div>`).join('')}${clauses}</div><button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="importToForm()">⬆ Importar al formulario</button>`;
+    document.getElementById('ai-results').style.display='block';
+    document.getElementById('btn-clear-ai').style.display='inline-flex';
+  }catch(e){
+    document.getElementById('ai-error').textContent='⚠️ Error al analizar. Verifica el texto e intenta de nuevo.';
+    document.getElementById('ai-error').style.display='block';
+    document.getElementById('ai-placeholder').style.display='block';
+  }
+  document.getElementById('ai-loading').style.display='none';
+  document.getElementById('btn-analyze').disabled=false;
+}
+function importToForm(){
+  if(!aiExtracted) return;
+  const d=aiExtracted; clearForm();
+  sv('f-name',d.name); sv('f-vendor',d.vendor); sv('f-type',d.type);
+  sv('f-start',d.start); sv('f-end',d.end); sv('f-value',d.value);
+  sv('f-responsible',d.contact); sv('f-desc',d.desc);
+  if(Array.isArray(d.clauses)) sv('f-clauses',d.clauses.map(c=>`[${c.type}] ${c.text}`).join('\n'));
+  navigate('new'); showToast('✨ Datos importados al formulario.');
+}
+function clearAI(){
+  sv('ai-text',''); aiExtracted=null;
+  ['ai-results','ai-error'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('ai-placeholder').style.display='block';
+  document.getElementById('btn-clear-ai').style.display='none';
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDER: DASHBOARD
+// ════════════════════════════════════════════════════════════
+function renderDashboard(){
+  const total=contracts.length, activos=contracts.filter(c=>c.status==='Activo').length;
+  const pvencer=contracts.filter(c=>c.status==='Por vencer').length;
+  const valor=contracts.reduce((s,c)=>s+Number(c.value||0),0);
+  document.getElementById('dash-metrics').innerHTML=[
+    {label:'Total contratos',val:total,color:'#185FA5'},
+    {label:'Activos',val:activos,color:'#3B6D11'},
+    {label:'Por vencer',val:pvencer,color:'#BA7517'},
+    {label:'Valor total',val:fmt(valor),color:'#185FA5'},
+  ].map(m=>`<div class="metric-card" style="--accent:${m.color}"><div class="metric-label">${m.label}</div><div class="metric-val">${m.val}</div></div>`).join('');
+
+  const typeMap={}; contracts.forEach(c=>{ typeMap[c.type]=(typeMap[c.type]||0)+Number(c.value||0); });
+  const types=Object.keys(typeMap);
+  dc('bar'); charts.bar=new Chart(document.getElementById('chart-bar'),{
+    type:'bar',data:{labels:types,datasets:[{data:types.map(t=>typeMap[t]),backgroundColor:types.map(t=>TYPE_COLOR[t]||'#888780'),borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>fmt(ctx.raw)}}},scales:{y:{ticks:{callback:v=>fmt(v)},grid:{color:'rgba(0,0,0,0.06)'}},x:{grid:{display:false}}}}
+  });
+
+  const sMap={}; contracts.forEach(c=>{ sMap[c.status]=(sMap[c.status]||0)+1; });
+  const sL=Object.keys(sMap);
+  dc('dough'); charts.dough=new Chart(document.getElementById('chart-dough'),{
+    type:'doughnut',data:{labels:sL,datasets:[{data:sL.map(s=>sMap[s]),backgroundColor:sL.map(s=>CONTRACT_STATUS_COLOR[s]?.color||'#888780'),cutout:'68%',borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}
+  });
+  document.getElementById('dough-legend').innerHTML=Object.entries(CONTRACT_STATUS_COLOR).map(([s,v])=>`<div class="legend-row"><span class="legend-dot" style="background:${v.color}"></span><span style="flex:1">${s}</span><span style="font-weight:600">${contracts.filter(c=>c.status===s).length}</span></div>`).join('');
+
+  const recent=[...contracts].sort((a,b)=>Number(b.created)-Number(a.created)).slice(0,5);
+  document.getElementById('recent-list').innerHTML=recent.length?recent.map(c=>`<div class="activity-item"><div><div class="activity-name">${c.name}</div><div class="activity-sub">${c.vendor}</div></div><div style="text-align:right">${badge(c.status)}<div class="activity-sub" style="margin-top:4px">${timeAgo(c.created)}</div></div></div>`).join(''):'<div class="empty-state">Sin actividad.</div>';
+
+  const upcoming=contracts.filter(c=>c.end).sort((a,b)=>a.end.localeCompare(b.end)).slice(0,5);
+  document.getElementById('upcoming-list').innerHTML=upcoming.length?upcoming.map(c=>`<div class="upcoming-item"><div><div class="activity-name">${c.name}</div><div class="activity-sub">${c.vendor}</div></div><div style="text-align:right">${badge(c.status)}<div class="activity-sub" style="margin-top:4px">${fmtDate(c.end)}</div></div></div>`).join(''):'<div class="empty-state">No hay vencimientos próximos.</div>';
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDER: CONTRACTS TABLE
+// ════════════════════════════════════════════════════════════
+function renderContracts(){
+  const q=gv('c-search').toLowerCase(), fst=gv('c-fstatus'), ftp=gv('c-ftype');
+  const filtered=contracts.filter(c=>
+    (!q||c.name.toLowerCase().includes(q)||c.vendor.toLowerCase().includes(q))
+    &&(!fst||c.status===fst||c.processStatus===fst)
+    &&(!ftp||c.type===ftp)
+  );
+  document.getElementById('contracts-tbody').innerHTML=filtered.length===0
+    ?`<tr><td colspan="8" class="empty-state">Sin resultados.</td></tr>`
+    :filtered.map(c=>{
+        const stageLabel=c.currentStage>=6?'✓ Completado':(STAGES[c.currentStage]||'—');
+        const stageCol=STAGE_COLORS[Math.min(Number(c.currentStage),5)];
+        const canAdv=c.processStatus==='En proceso'&&Number(c.currentStage)<6;
+        const ac=avatarColor(c.responsible||'?');
+        return `<tr>
+          <td style="font-weight:600;max-width:180px">${c.name}<div style="font-size:11px;color:var(--muted);font-weight:400">${c.vendor}</div></td>
+          <td>${typeChip(c.type)}</td>
+          <td>${badge(c.status)}</td>
+          <td><span style="background:${stageCol}22;color:${stageCol};border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600">${stageLabel}</span></td>
+          <td style="color:var(--muted);white-space:nowrap">${fmtDate(c.end)}</td>
+          <td style="font-weight:600;white-space:nowrap">${fmt(c.value)}</td>
+          <td><div style="display:flex;align-items:center;gap:6px"><span class="avatar" style="background:${ac};width:24px;height:24px;font-size:10px">${initials(c.responsible||'?')}</span><span style="font-size:12px">${c.responsible||'—'}</span></div></td>
+          <td><div style="display:flex;gap:5px;flex-wrap:wrap">
+            ${canAdv?`<button class="btn btn-sm btn-success" onclick="openStageModal(${c.id})">⇉</button>`:''}
+            <button class="btn btn-sm btn-edit" onclick="openEdit(${c.id})">✎</button>
+            <button class="btn btn-sm btn-del" onclick="openDelete(${c.id})">✕</button>
+          </div></td></tr>`;
+      }).join('');
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDER: KPIs
+// ════════════════════════════════════════════════════════════
+function renderKPIs(){
+  const completed=contracts.filter(c=>c.processStatus==='Completado');
+  const inProg=contracts.filter(c=>c.processStatus==='En proceso');
+  const allDays=completed.map(c=>contractDays(c)).filter(d=>d&&d>0&&d<400);
+  const avgDays=allDays.length?Math.round(allDays.reduce((a,b)=>a+b,0)/allDays.length):0;
+  const compRate=contracts.length?Math.round(completed.length/contracts.length*100):0;
+  const totalVal=contracts.filter(c=>c.processStatus!=='Cancelado').reduce((s,c)=>s+Number(c.value||0),0);
+  document.getElementById('kpi-cards').innerHTML=[
+    {label:'Tiempo promedio de cierre',val:`${avgDays} días`,sub:'Solicitud → Archivo',color:'#185FA5'},
+    {label:'Contratos en proceso',val:inProg.length,sub:`${completed.length} completados`,color:'#EF9F27'},
+    {label:'Tasa de completitud',val:`${compRate}%`,sub:`de ${contracts.length} totales`,color:'#3B6D11'},
+    {label:'Valor total gestionado',val:fmt(totalVal),sub:'Activos + completados',color:'#7C3AED'},
+  ].map(m=>`<div class="metric-card" style="--accent:${m.color}"><div class="metric-label">${m.label}</div><div class="metric-val">${m.val}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
+
+  const mComp={}; completed.forEach(c=>{ const d=new Date(Number(c.created)),k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; mComp[k]=(mComp[k]||0)+1; });
+  const months=Object.keys(mComp).sort().slice(-8);
+  dc('kpiMonthly'); charts.kpiMonthly=new Chart(document.getElementById('kpi-monthly'),{
+    type:'bar',data:{labels:months.map(m=>{ const [y,mo]=m.split('-'); return new Date(y,mo-1).toLocaleDateString('es-MX',{month:'short',year:'2-digit'}); }),datasets:[{data:months.map(m=>mComp[m]),backgroundColor:'#185FA5',borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{stepSize:1},grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}}
+  });
+
+  const psMap={'En proceso':0,'Completado':0,'Cancelado':0}; contracts.forEach(c=>{ if(psMap[c.processStatus]!==undefined) psMap[c.processStatus]++; });
+  const psL=Object.keys(psMap).filter(s=>psMap[s]>0);
+  const psBg={'En proceso':'#185FA5','Completado':'#3B6D11','Cancelado':'#A32D2D'};
+  dc('kpiStatus'); charts.kpiStatus=new Chart(document.getElementById('kpi-status'),{
+    type:'doughnut',data:{labels:psL,datasets:[{data:psL.map(s=>psMap[s]),backgroundColor:psL.map(s=>psBg[s]),cutout:'70%',borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}
+  });
+  document.getElementById('kpi-status-legend').innerHTML=psL.map(s=>`<div class="legend-row"><span class="legend-dot" style="background:${psBg[s]}"></span><span style="flex:1">${s}</span><span style="font-weight:600">${psMap[s]}</span></div>`).join('');
+
+  const stageTotals=STAGES.map((_,i)=>{ const vals=contracts.map(c=>stageDuration(c,i)).filter(d=>d&&d>0&&d<200); return vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):0; });
+  dc('kpiStages'); charts.kpiStages=new Chart(document.getElementById('kpi-stages'),{
+    type:'bar',data:{labels:STAGES.map(s=>s.length>14?s.substring(0,14)+'…':s),datasets:[{data:stageTotals,backgroundColor:STAGE_COLORS,borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw} días`}}},scales:{x:{ticks:{callback:v=>`${v}d`},grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}}
+  });
+
+  const mVal={}; contracts.filter(c=>c.processStatus!=='Cancelado').forEach(c=>{ const d=new Date(Number(c.created)),k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; mVal[k]=(mVal[k]||0)+Number(c.value||0); });
+  const vMonths=Object.keys(mVal).sort().slice(-8);
+  dc('kpiValue'); charts.kpiValue=new Chart(document.getElementById('kpi-value'),{
+    type:'line',data:{labels:vMonths.map(m=>{ const [y,mo]=m.split('-'); return new Date(y,mo-1).toLocaleDateString('es-MX',{month:'short',year:'2-digit'}); }),datasets:[{data:vMonths.map(m=>mVal[m]),borderColor:'#7C3AED',backgroundColor:'rgba(124,58,237,.1)',fill:true,tension:.4,pointBackgroundColor:'#7C3AED',pointRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>fmt(ctx.raw)}}},scales:{y:{ticks:{callback:v=>fmt(v)},grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}}
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDER: FUNNEL
+// ════════════════════════════════════════════════════════════
+function renderFunnel(){
+  const stageCounts=STAGES.map((_,i)=>contracts.filter(c=>Number(c.currentStage)===i&&c.processStatus==='En proceso').length);
+  const stageAvg=STAGES.map((_,i)=>{ const vals=contracts.map(c=>stageDuration(c,i)).filter(d=>d&&d>0&&d<200); return vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):0; });
+  document.getElementById('funnel-cards').innerHTML=STAGES.map((s,i)=>`<div class="funnel-stage"><div class="funnel-num" style="color:${STAGE_COLORS[i]}">${stageCounts[i]}</div><div class="funnel-label">${s}</div><span class="funnel-days" style="background:${STAGE_COLORS[i]}22;color:${STAGE_COLORS[i]}">⌀ ${stageAvg[i]}d</span></div>`).join('');
+
+  const inProg=contracts.filter(c=>c.processStatus==='En proceso').sort((a,b)=>Number(a.currentStage)-Number(b.currentStage));
+  document.getElementById('funnel-list').innerHTML=inProg.length===0?'<div class="empty-state">No hay contratos en proceso.</div>':inProg.map(c=>{
+    const days=daysFromToday(c.requestDate);
+    const col=STAGE_COLORS[Math.min(Number(c.currentStage),5)];
+    const dCol=days>30?'var(--red)':days>15?'var(--amber)':'var(--green)';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:600;margin-bottom:2px">${c.name}</div><div style="font-size:12px;color:var(--muted)">${c.responsible||'—'}</div></div><div style="text-align:right;flex-shrink:0;margin-left:12px"><span style="background:${col}22;color:${col};border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600">${STAGES[Number(c.currentStage)]||'—'}</span><div style="font-size:11px;font-weight:600;margin-top:4px;color:${dCol}">${days||0}d en proceso</div></div></div>`;
+  }).join('');
+
+  const byStage=STAGES.map((_,i)=>contracts.filter(c=>Number(c.currentStage)===i).length);
+  dc('funnelBar'); charts.funnelBar=new Chart(document.getElementById('funnel-bar'),{
+    type:'bar',data:{labels:STAGES.map(s=>s.length>14?s.substring(0,14)+'…':s),datasets:[{data:byStage,backgroundColor:STAGE_COLORS,borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{stepSize:1},grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false}}}}
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDER: TEAM
+// ════════════════════════════════════════════════════════════
+function renderTeam(){
+  const period=Number(gv('team-period'))||0;
+  const cutoff=period?Date.now()-period*86400000:0;
+  const filt=period?contracts.filter(c=>Number(c.created)>=cutoff):contracts;
+  const teamMap={};
+  filt.forEach(c=>{
+    if(!c.responsible) return;
+    if(!teamMap[c.responsible]) teamMap[c.responsible]={name:c.responsible,total:0,completed:0,totalDays:0,countDays:0};
+    const m=teamMap[c.responsible]; m.total++;
+    if(c.processStatus==='Completado') m.completed++;
+    const d=contractDays(c); if(d&&d>0&&d<400){ m.totalDays+=d; m.countDays++; }
+  });
+  const team=Object.values(teamMap).sort((a,b)=>b.total-a.total);
+  const maxTotal=Math.max(1,...team.map(t=>t.total));
+
+  dc('teamBar'); charts.teamBar=new Chart(document.getElementById('team-bar'),{
+    type:'bar',data:{labels:team.map(t=>t.name.split(' ').slice(-1)[0]),datasets:[{data:team.map(t=>t.total),backgroundColor:team.map(t=>avatarColor(t.name)),borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{stepSize:1},grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}}
+  });
+  dc('teamTime'); charts.teamTime=new Chart(document.getElementById('team-time'),{
+    type:'bar',data:{labels:team.map(t=>t.name.split(' ').slice(-1)[0]),datasets:[{data:team.map(t=>t.countDays?Math.round(t.totalDays/t.countDays):0),backgroundColor:'rgba(124,58,237,.7)',borderRadius:6,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.raw} días promedio`}}},scales:{y:{ticks:{callback:v=>`${v}d`},grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}}
+  });
+
+  const medals=['🥇','🥈','🥉'];
+  document.getElementById('team-ranking').innerHTML=`
+    <thead><tr><th>#</th><th>Responsable</th><th>Contratos</th><th>Completados</th><th>Tiempo prom.</th><th>Volumen</th><th>Eficiencia</th></tr></thead>
+    <tbody>${team.map((t,i)=>{
+      const avg=t.countDays?Math.round(t.totalDays/t.countDays):null;
+      const rate=t.total?Math.round(t.completed/t.total*100):0;
+      const vol=Math.round(t.total/maxTotal*100);
+      const dCol=avg===null?'var(--muted)':avg<30?'var(--green)':avg<60?'var(--amber)':'var(--red)';
+      const rBg=rate>=70?'var(--green-lt)':rate>=40?'var(--amber-lt)':'var(--red-lt)';
+      const rCol=rate>=70?'var(--green)':rate>=40?'var(--amber)':'var(--red)';
+      const ac=avatarColor(t.name);
+      return `<tr>
+        <td><span style="font-family:Syne,sans-serif;font-weight:800;color:${ac}">${medals[i]||i+1}</span></td>
+        <td><div style="display:flex;align-items:center"><span class="avatar" style="background:${ac}">${initials(t.name)}</span><span style="font-weight:600;font-size:13px">${t.name}</span></div></td>
+        <td style="font-weight:700;font-size:15px">${t.total}</td>
+        <td><span style="font-weight:600">${t.completed}</span><span style="color:var(--muted);font-size:12px"> / ${t.total}</span></td>
+        <td><span style="font-weight:700;color:${dCol}">${avg!==null?avg+'d':'—'}</span></td>
+        <td style="min-width:110px"><div style="display:flex;align-items:center;gap:8px"><div class="bar-wrap" style="flex:1"><div class="bar-fill" style="width:${vol}%;background:${ac}"></div></div><span style="font-size:12px;color:var(--muted)">${t.total}</span></div></td>
+        <td><span style="background:${rBg};color:${rCol};border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600">${rate}%</span></td>
+      </tr>`;
+    }).join('')}</tbody>`;
+}
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+async function init(){
+  document.getElementById('loading-msg').textContent='Conectando con Google Sheets…';
+  await loadFromSheets(false);
+  document.getElementById('loading-screen').style.display='none';
+  document.getElementById('app-shell').style.display='flex';
+  renderDashboard();
+  // Auto-sync every 60 seconds
+  syncInterval=setInterval(()=>loadFromSheets(true), 60000);
+}
+
+init();
+</script>
+</body>
+</html>
