@@ -602,7 +602,11 @@ function navigate(page){
   if(page==='funnel') renderFunnel();
   if(page==='team') renderTeam();
 }
-function refreshCurrentPage(){ navigate(currentPage); }
+function refreshCurrentPage(){
+  // Never interrupt the form while the user is filling it in
+  if(currentPage==='new'||currentPage==='ai') return;
+  navigate(currentPage);
+}
 
 // ════════════════════════════════════════════════════════════
 // FORM
@@ -1064,8 +1068,8 @@ async function init(){
   document.getElementById('loading-screen').style.display='none';
   document.getElementById('app-shell').style.display='flex';
   renderDashboard();
-  // Auto-sync every 60 seconds
-  syncInterval=setInterval(()=>loadFromSheets(true), 60000);
+  // Auto-sync every 2 minutes — skips form and AI pages to avoid interrupting the user
+  syncInterval=setInterval(()=>{ if(currentPage!=='new'&&currentPage!=='ai') loadFromSheets(true); }, 120000);
 }
 
 init();
